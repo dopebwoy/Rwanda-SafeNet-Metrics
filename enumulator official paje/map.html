@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Rwanda village boundary map using NISR administrative boundaries.">
+  <title>Rwanda Village Boundary Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body { margin: 0; font: 16px system-ui, sans-serif; color: #183027; }
+    header { padding: 16px 20px; }
+    h1 { margin: 0 0 5px; font-size: 1.25rem; }
+    p { margin: 0; color: #586961; }
+    #map { height: calc(100vh - 82px); min-height: 380px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Rwanda village boundaries</h1>
+    <p id="mapStatus" role="status">Loading the public NISR boundary layer…</p>
+  </header>
+  <div id="map" aria-label="Map of Rwanda village boundaries"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/esri-leaflet@3.0.15/dist/esri-leaflet.js"></script>
+  <script>
+    const map = L.map("map").setView([-1.9402, 29.8739], 9);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors | Village boundaries &copy; NISR'
+    }).addTo(map);
+
+    const villages = L.esri.featureLayer({
+      url: "https://gh.space.gov.rw/server/rest/services/Admin_Boundaries/FeatureServer/4",
+      simplifyFactor: 0.5,
+      precision: 5,
+      style: () => ({ color: "#007a45", weight: 1, fillColor: "#1c9b62", fillOpacity: 0.08 })
+    }).addTo(map);
+
+    villages.on("load", () => {
+      document.querySelector("#mapStatus").textContent = "NISR village boundaries loaded. Select a boundary to see its name.";
+    });
+    villages.on("error", () => {
+      document.querySelector("#mapStatus").textContent = "Could not load NISR boundaries. Check your internet connection.";
+    });
+    villages.bindPopup(layer => {
+      const p = layer.feature?.properties || {};
+      return `<strong>${p.village || "Village"}</strong><br>${p.cell || ""}, ${p.sector || ""}<br>${p.district || ""}, ${p.province || ""}`;
+    });
+  </script>
+</body>
+</html>

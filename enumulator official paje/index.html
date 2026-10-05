@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Rwanda SafeNet Metrics — Enumerator prototype for household socioeconomic data collection." />
+  <title>Rwanda SafeNet Metrics | Enumerator</title>
+
+  <!-- Map library. Internet is required to load Leaflet + OpenStreetMap tiles. -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div id="app" class="app-shell">
+
+    <!-- ==================== TOP BAR ==================== -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">RS</div>
+        <div>
+          <h1>Rwanda SafeNet Metrics</h1>
+          <span>Enumerator Console · Frontend Prototype</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="connection-pill" id="storageStatus">
+          <span class="status-dot"></span>
+          Local storage ready
+        </div>
+        <button class="icon-btn" id="helpBtn" title="Open help">?</button>
+        <div class="enumerator-chip">
+          <div class="avatar" id="avatarInitials">EN</div>
+          <div>
+            <strong id="enumeratorName">Enumerator</strong>
+            <small id="enumeratorId">Enumerator ID: DEMO-001</small>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <aside class="sidebar">
+      <div class="assignment-mini">
+        <span class="eyebrow">Assigned village</span>
+        <strong id="sidebarVillage">Not configured</strong>
+        <small id="sidebarAddress">Set your assignment below.</small>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Enumerator navigation">
+        <button class="nav-item active" data-view="overview">
+          <span class="nav-icon">⌂</span> Overview
+        </button>
+        <button class="nav-item" data-view="newHousehold">
+          <span class="nav-icon">＋</span> New household
+        </button>
+        <button class="nav-item" data-view="recent">
+          <span class="nav-icon">▤</span> Recent 100
+        </button>
+        <button class="nav-item" data-view="storage">
+          <span class="nav-icon">◫</span> Local data
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span>Prototype mode</span>
+        <small>Do not enter real sensitive government data.</small>
+      </div>
+    </aside>
+
+    <!-- ==================== MAIN ==================== -->
+    <main class="main-content">
+
+      <!-- OVERVIEW -->
+      <section id="view-overview" class="view">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Field dashboard</span>
+            <h2>Enumerator Overview</h2>
+            <p>Collect, review and manage household records for your assigned village.</p>
+          </div>
+          <button class="primary-btn" data-view-target="newHousehold">＋ Register household</button>
+        </div>
+
+        <div class="prototype-warning">
+          <strong>Frontend prototype:</strong>
+          submitted records and one saved draft stay in this browser's localStorage. Household GPS is captured at the home;
+          use “Start live GPS” to show the enumerator's changing position.
+        </div>
+
+        <article id="savedDraftCard" class="card hidden" style="margin-bottom:18px">
+          <div class="card-header">
+            <div><span class="eyebrow">Saved on this device</span><h3>Household draft</h3><p id="savedDraftDetail" class="muted"></p></div>
+            <button type="button" id="openSavedDraftBtn" class="primary-btn">Continue draft</button>
+          </div>
+        </article>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-icon">⌂</div>
+            <div>
+              <span>Registered households</span>
+              <strong id="statHouseholds">0</strong>
+            </div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon">↻</div>
+            <div>
+              <span>Pending sync</span>
+              <strong id="statPending">0</strong>
+            </div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon">GPS</div>
+            <div>
+              <span>GPS captures</span>
+              <strong id="statGps">0</strong>
+            </div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon">▦</div>
+            <div>
+              <span>Village quota</span>
+              <strong id="statQuota">—</strong>
+            </div>
+          </article>
+        </div>
+
+        <div class="grid-2">
+          <article class="card assignment-card">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow">Enumerator assignment</span>
+                <h3>Your coverage area</h3>
+              </div>
+              <button class="secondary-btn small" id="editAssignmentBtn">Edit assignment</button>
+            </div>
+
+            <p class="muted">
+              One enumerator is assigned to one village in this prototype.
+              The hierarchy is saved locally so every new household inherits it automatically.
+            </p>
+
+            <form id="assignmentForm" class="form-grid hidden">
+              <div class="field">
+                <label for="province">Province</label>
+                <select id="province" name="province" required></select>
+              </div>
+              <div class="field">
+                <label for="district">District</label>
+                <select id="district" name="district" required disabled></select>
+              </div>
+              <div class="field">
+                <label for="sector">Sector</label>
+                <select id="sector" name="sector" required disabled></select>
+              </div>
+              <div class="field">
+                <label for="cell">Cell</label>
+                <select id="cell" name="cell" required disabled></select>
+              </div>
+              <div class="field">
+                <label for="village">Village</label>
+                <select id="village" name="village" required disabled></select>
+              </div>
+              <div class="form-actions full-width">
+                <button type="submit" class="primary-btn">Save assignment</button>
+                <button type="button" class="ghost-btn" id="cancelAssignmentBtn">Cancel</button>
+              </div>
+            </form>
+
+            <div id="assignmentSummary" class="assignment-summary"></div>
+          </article>
+
+          <article class="card map-card">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow">Field map</span>
+                <h3>Coverage & registered houses</h3>
+              </div>
+              <button class="secondary-btn small" id="locateBtn">⌖ Start live GPS</button>
+            </div>
+            <div class="map-legend">
+              <span><i class="legend-dot green"></i> Registered house</span>
+              <span><i class="legend-dot blue"></i> Enumerator GPS</span>
+              <span><i class="legend-area"></i> Assigned coverage</span>
+            </div>
+            <div id="map" class="map"></div>
+            <div class="map-footer">
+              <span id="gpsStatus">GPS: not captured</span>
+              <span id="mapCenterStatus">Map ready</span>
+            </div>
+          </article>
+        </div>
+
+        <article class="card recent-preview">
+          <div class="card-header">
+            <div>
+              <span class="eyebrow">Latest field activity</span>
+              <h3>Recent 10 households</h3>
+            </div>
+            <button class="ghost-btn small" data-view-target="recent">View all 100</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Household code</th>
+                  <th>Head of household</th>
+                  <th>Members</th>
+                  <th>Address</th>
+                  <th>GPS</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="recentPreviewBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <!-- NEW HOUSEHOLD -->
+      <section id="view-newHousehold" class="view hidden">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Household registration</span>
+            <h2 id="formTitle">Register a new household</h2>
+            <p>Complete the interview carefully. The form is saved locally as a draft while you work.</p>
+          </div>
+          <div class="heading-actions">
+            <button class="ghost-btn" id="saveDraftTopBtn">Save draft</button>
+            <button class="secondary-btn" id="backOverviewBtn">Back</button>
+          </div>
+        </div>
+
+        <div class="form-progress">
+          <div>
+            <span>Form completeness</span>
+            <strong id="formProgressText">0%</strong>
+          </div>
+          <div class="progress-track">
+            <div id="formProgressBar" class="progress-bar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <form id="householdForm" novalidate>
+          <!-- 1. LOCATION -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">1</span>
+              <div>
+                <h3>Location & GPS</h3>
+                <p>Capture the household point while standing at the home. The blue map marker follows the enumerator; a green household marker appears after submission.</p>
+              </div>
+            </div>
+
+            <div class="location-banner" id="inheritedLocationBanner"></div>
+
+            <div class="gps-box">
+              <div>
+                <strong>Precise household coordinates</strong>
+                <span>Use the phone/tablet location when standing at or near the household.</span>
+              </div>
+              <button type="button" class="primary-btn" id="captureGpsBtn">⌖ Capture GPS</button>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="gpsLat">Latitude <span class="required">*</span></label>
+                <input id="gpsLat" name="gpsLat" type="number" step="any" placeholder="-1.94..." required />
+              </div>
+              <div class="field">
+                <label for="gpsLng">Longitude <span class="required">*</span></label>
+                <input id="gpsLng" name="gpsLng" type="number" step="any" placeholder="30.06..." required />
+              </div>
+              <div class="field">
+                <label for="gpsAccuracy">GPS accuracy (metres)</label>
+                <input id="gpsAccuracy" name="gpsAccuracy" type="number" step="0.1" min="0" placeholder="e.g. 8.5" />
+              </div>
+              <div class="field">
+                <label for="houseAddress">House / locality description</label>
+                <input id="houseAddress" name="houseAddress" type="text" placeholder="Nearest road, landmark, plot description..." />
+              </div>
+            </div>
+          </article>
+
+          <!-- 2. HOUSEHOLD IDENTIFICATION -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">2</span>
+              <div>
+                <h3>Household identification</h3>
+                <p>Basic information about the household and respondent.</p>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="householdCode">Household code</label>
+                <input id="householdCode" name="householdCode" type="text" readonly />
+              </div>
+              <div class="field">
+                <label for="interviewDate">Interview date</label>
+                <input id="interviewDate" name="interviewDate" type="date" required />
+              </div>
+              <div class="field">
+                <label for="headName">Head of household <span class="required">*</span></label>
+                <input id="headName" name="headName" type="text" placeholder="Full name" required />
+              </div>
+              <div class="field">
+                <label for="respondentName">Respondent name</label>
+                <input id="respondentName" name="respondentName" type="text" placeholder="Person answering the interview" />
+              </div>
+              <div class="field">
+                <label for="respondentRelation">Respondent relationship</label>
+                <select id="respondentRelation" name="respondentRelation">
+                  <option value="">Select</option>
+                  <option>Head</option>
+                  <option>Spouse/partner</option>
+                  <option>Child</option>
+                  <option>Parent</option>
+                  <option>Other relative</option>
+                  <option>Non-relative household member</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="householdPhone">Primary household phone</label>
+                <input id="householdPhone" name="householdPhone" type="tel" inputmode="tel" placeholder="+250 7xx xxx xxx" />
+              </div>
+              <div class="field full-width">
+                <label for="householdNotes">Enumerator notes</label>
+                <textarea id="householdNotes" name="householdNotes" rows="3" placeholder="Useful field observations only. Avoid unnecessary sensitive notes."></textarea>
+              </div>
+            </div>
+          </article>
+
+          <!-- 3. MEMBERS -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">3</span>
+              <div>
+                <h3>Household members</h3>
+                <p>Add every person who normally lives in the household.</p>
+              </div>
+            </div>
+
+            <div id="membersContainer" class="members-container"></div>
+            <button type="button" class="secondary-btn" id="addMemberBtn">＋ Add household member</button>
+          </article>
+
+          <!-- 4. EDUCATION & HEALTH -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">4</span>
+              <div>
+                <h3>Education & health profile</h3>
+                <p>Capture education, insurance and disability/health indicators relevant to household vulnerability.</p>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="schoolAttendance">School attendance situation</label>
+                <select id="schoolAttendance" name="schoolAttendance">
+                  <option value="">Select</option>
+                  <option>All school-aged children attending</option>
+                  <option>Some school-aged children not attending</option>
+                  <option>No school-aged children</option>
+                  <option>Not known</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="healthCoverage">Household health coverage</label>
+                <select id="healthCoverage" name="healthCoverage">
+                  <option value="">Select</option>
+                  <option>Mutuelle de Santé</option>
+                  <option>Other insurance</option>
+                  <option>Multiple coverage types</option>
+                  <option>No health coverage</option>
+                  <option>Not known</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="chronicIllness">Chronic illness in household</label>
+                <select id="chronicIllness" name="chronicIllness">
+                  <option value="">Select</option>
+                  <option>No known chronic illness</option>
+                  <option>Yes</option>
+                  <option>Not known / declined</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="disabilityCount">Members with disability affecting independence</label>
+                <input id="disabilityCount" name="disabilityCount" type="number" min="0" step="1" value="0" />
+              </div>
+            </div>
+          </article>
+
+          <!-- 5. HOUSING -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">5</span>
+              <div>
+                <h3>Housing & living conditions</h3>
+                <p>Record the main structural and basic-service characteristics of the dwelling.</p>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="roofMaterial">Roof material</label>
+                <select id="roofMaterial" name="roofMaterial">
+                  <option value="">Select</option>
+                  <option>Iron sheets</option>
+                  <option>Tiles</option>
+                  <option>Thatch</option>
+                  <option>Concrete</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="wallMaterial">Wall material</label>
+                <select id="wallMaterial" name="wallMaterial">
+                  <option value="">Select</option>
+                  <option>Mud/adobe brick</option>
+                  <option>Fired brick</option>
+                  <option>Cement block</option>
+                  <option>Stone</option>
+                  <option>Wood</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="floorMaterial">Floor material</label>
+                <select id="floorMaterial" name="floorMaterial">
+                  <option value="">Select</option>
+                  <option>Earth</option>
+                  <option>Cement</option>
+                  <option>Tiles</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="waterSource">Main drinking-water source</label>
+                <select id="waterSource" name="waterSource">
+                  <option value="">Select</option>
+                  <option>Public tap</option>
+                  <option>Piped into dwelling/yard</option>
+                  <option>Protected spring</option>
+                  <option>Unprotected spring</option>
+                  <option>Borehole/well</option>
+                  <option>River/stream</option>
+                  <option>Rainwater</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="toiletType">Toilet/sanitation facility</label>
+                <select id="toiletType" name="toiletType">
+                  <option value="">Select</option>
+                  <option>Flush toilet</option>
+                  <option>Improved pit latrine</option>
+                  <option>Pit latrine</option>
+                  <option>Shared facility</option>
+                  <option>No facility / open defecation</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="lightingSource">Main lighting source</label>
+                <select id="lightingSource" name="lightingSource">
+                  <option value="">Select</option>
+                  <option>Electricity</option>
+                  <option>Solar</option>
+                  <option>Battery/torch</option>
+                  <option>Kerosene</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="cookingFuel">Main cooking fuel</label>
+                <select id="cookingFuel" name="cookingFuel">
+                  <option value="">Select</option>
+                  <option>Electricity</option>
+                  <option>Gas</option>
+                  <option>Charcoal</option>
+                  <option>Firewood</option>
+                  <option>Biogas</option>
+                  <option>Crop residue</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="householdRooms">Number of sleeping rooms</label>
+                <input id="householdRooms" name="householdRooms" type="number" min="0" step="1" />
+              </div>
+            </div>
+          </article>
+
+          <!-- 6. ECONOMIC -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">6</span>
+              <div>
+                <h3>Economic activity & assets</h3>
+                <p>Capture main livelihoods and productive/household assets.</p>
+              </div>
+            </div>
+
+            <div class="subheading">Livelihood</div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="employmentStatus">Household employment situation</label>
+                <select id="employmentStatus" name="employmentStatus">
+                  <option value="">Select</option>
+                  <option>Formal employment</option>
+                  <option>Informal employment</option>
+                  <option>Self-employed/business</option>
+                  <option>Farming</option>
+                  <option>Casual labour</option>
+                  <option>Unemployed / looking for work</option>
+                  <option>Mixed</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="primaryActivity">Primary income/livelihood source</label>
+                <select id="primaryActivity" name="primaryActivity">
+                  <option value="">Select</option>
+                  <option>Subsistence farming</option>
+                  <option>Casual labour</option>
+                  <option>Small business</option>
+                  <option>Formal wages</option>
+                  <option>Remittances</option>
+                  <option>Fishing</option>
+                  <option>Livestock</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="monthlyIncomeBand">Approximate monthly household income band</label>
+                <select id="monthlyIncomeBand" name="monthlyIncomeBand">
+                  <option value="">Prefer banding for privacy</option>
+                  <option>Very low</option>
+                  <option>Low</option>
+                  <option>Middle</option>
+                  <option>High</option>
+                  <option>Declined / not known</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="landSize">Agricultural land size (hectares)</label>
+                <input id="landSize" name="landSize" type="number" min="0" step="0.01" />
+              </div>
+              <div class="field">
+                <label for="landUse">Main land use</label>
+                <input id="landUse" name="landUse" type="text" placeholder="Crops, pasture, mixed..." />
+              </div>
+            </div>
+
+            <div class="subheading">Exact livestock counts</div>
+            <div class="asset-grid">
+              <label class="asset-input">Cattle <input name="cattle" id="cattle" type="number" min="0" step="1" value="0" /></label>
+              <label class="asset-input">Goats <input name="goats" id="goats" type="number" min="0" step="1" value="0" /></label>
+              <label class="asset-input">Sheep <input name="sheep" id="sheep" type="number" min="0" step="1" value="0" /></label>
+              <label class="asset-input">Pigs <input name="pigs" id="pigs" type="number" min="0" step="1" value="0" /></label>
+              <label class="asset-input">Poultry <input name="poultry" id="poultry" type="number" min="0" step="1" value="0" /></label>
+              <label class="asset-input">Rabbits <input name="rabbits" id="rabbits" type="number" min="0" step="1" value="0" /></label>
+            </div>
+
+            <div class="subheading">Other assets & finance access</div>
+            <div class="form-grid">
+              <div class="field checkbox-field">
+                <label><input id="ownsRadio" name="ownsRadio" type="checkbox" /> Radio</label>
+                <label><input id="ownsTV" name="ownsTV" type="checkbox" /> Television</label>
+                <label><input id="ownsMotorbike" name="ownsMotorbike" type="checkbox" /> Motorbike</label>
+                <label><input id="ownsPhone" name="ownsPhone" type="checkbox" /> Mobile phone</label>
+              </div>
+              <div class="field checkbox-field">
+                <label><input id="hasMobileMoney" name="hasMobileMoney" type="checkbox" /> Active Mobile Money account</label>
+                <label><input id="mtnMoney" name="mtnMoney" type="checkbox" /> MTN Mobile Money</label>
+                <label><input id="airtelMoney" name="airtelMoney" type="checkbox" /> Airtel Money</label>
+              </div>
+              <div class="field checkbox-field">
+                <label><input id="hasSacco" name="hasSacco" type="checkbox" /> Member of Umurenge SACCO</label>
+                <label><input id="hasIbimina" name="hasIbimina" type="checkbox" /> Member of Ibimina/savings group</label>
+                <label><input id="hasBank" name="hasBank" type="checkbox" /> Has bank account</label>
+                <label><input id="hasLoan" name="hasLoan" type="checkbox" /> Has outstanding loan</label>
+              </div>
+              <div class="field">
+                <label for="creditNotes">Credit/savings notes</label>
+                <textarea id="creditNotes" name="creditNotes" rows="3" placeholder="Only relevant high-level information."></textarea>
+              </div>
+            </div>
+          </article>
+
+          <!-- 7. FOOD SECURITY -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">7</span>
+              <div>
+                <h3>Food security & vulnerability</h3>
+                <p>Capture household food access indicators and recent hardship.</p>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="mealsPerDay">Typical meals per day</label>
+                <select id="mealsPerDay" name="mealsPerDay">
+                  <option value="">Select</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4+">4+</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="foodShortage">Food shortage in recent period</label>
+                <select id="foodShortage" name="foodShortage">
+                  <option value="">Select</option>
+                  <option>No</option>
+                  <option>Rarely</option>
+                  <option>Sometimes</option>
+                  <option>Frequently</option>
+                  <option>Prefer not to answer</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="communitySupport">Reliance on community/family support</label>
+                <select id="communitySupport" name="communitySupport">
+                  <option value="">Select</option>
+                  <option>Never</option>
+                  <option>Sometimes</option>
+                  <option>Frequently</option>
+                  <option>Currently dependent</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="vulnerabilityLevel">Enumerator-assessed vulnerability flag</label>
+                <select id="vulnerabilityLevel" name="vulnerabilityLevel">
+                  <option value="">Select</option>
+                  <option>Low concern</option>
+                  <option>Moderate concern</option>
+                  <option>High concern</option>
+                  <option>Immediate attention</option>
+                  <option>Needs supervisor review</option>
+                </select>
+              </div>
+            </div>
+          </article>
+
+          <!-- 8. GOVERNMENT SUPPORT -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">8</span>
+              <div>
+                <h3>Prior government support</h3>
+                <p>Record previously received or current support programs as reported/verified.</p>
+              </div>
+            </div>
+
+            <div class="support-grid">
+              <label class="support-card">
+                <input id="supportVup" name="supportVup" type="checkbox" />
+                <span><strong>VUP</strong><small>Vision Umurenge Programme support</small></span>
+              </label>
+              <label class="support-card">
+                <input id="supportGirinka" name="supportGirinka" type="checkbox" />
+                <span><strong>Girinka</strong><small>One Cow per Family support</small></span>
+              </label>
+              <label class="support-card">
+                <input id="supportNutrition" name="supportNutrition" type="checkbox" />
+                <span><strong>ECD / nutrition</strong><small>Early-childhood/nutrition support</small></span>
+              </label>
+              <label class="support-card">
+                <input id="supportOther" name="supportOther" type="checkbox" />
+                <span><strong>Other support</strong><small>Other government/social program</small></span>
+              </label>
+            </div>
+
+            <div class="form-grid top-gap">
+              <div class="field">
+                <label for="supportStatus">Current support situation</label>
+                <select id="supportStatus" name="supportStatus">
+                  <option value="">Select</option>
+                  <option>Currently receiving support</option>
+                  <option>Previously received support</option>
+                  <option>Applied / pending</option>
+                  <option>No known support</option>
+                  <option>Not known</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="supportNotes">Program/support notes</label>
+                <textarea id="supportNotes" name="supportNotes" rows="3"></textarea>
+              </div>
+            </div>
+          </article>
+
+          <!-- 9. REVIEW -->
+          <article class="card form-section">
+            <div class="section-title">
+              <span class="section-number">9</span>
+              <div>
+                <h3>Review & submit</h3>
+                <p>Review required fields before the record is marked ready for later backend synchronization.</p>
+              </div>
+            </div>
+
+            <div id="validationSummary" class="validation-summary hidden"></div>
+
+            <label class="consent-check">
+              <input id="interviewAcknowledgement" name="interviewAcknowledgement" type="checkbox" required />
+              <span>
+                I confirm that the information was collected during the household interview and that I have reviewed the form for obvious entry errors.
+                <small>This is a prototype acknowledgement, not a statement of Rwanda government legal consent requirements.</small>
+              </span>
+            </label>
+
+            <div class="form-actions">
+              <button type="button" class="ghost-btn" id="resetFormBtn">Reset form</button>
+              <button type="button" class="secondary-btn" id="saveDraftBtn">Save draft</button>
+              <button type="submit" class="primary-btn">Save household locally</button>
+            </div>
+          </article>
+        </form>
+      </section>
+
+      <!-- RECENT 100 -->
+      <section id="view-recent" class="view hidden">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Local registry</span>
+            <h2>Recent 100 households</h2>
+            <p>Showing records collected by this browser for the assigned village.</p>
+          </div>
+          <button class="primary-btn" data-view-target="newHousehold">＋ Register household</button>
+        </div>
+
+        <article class="card">
+          <div class="toolbar">
+            <input id="recentSearch" type="search" placeholder="Search code, name or address..." />
+            <select id="recentStatusFilter">
+              <option value="all">All statuses</option>
+              <option value="pending_sync">Pending sync</option>
+              <option value="draft">Draft</option>
+              <option value="verified_local">Locally reviewed</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Head</th>
+                  <th>Members</th>
+                  <th>Address</th>
+                  <th>GPS</th>
+                  <th>Collected</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recentTableBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <!-- LOCAL STORAGE -->
+      <section id="view-storage" class="view hidden">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Offline-first prototype</span>
+            <h2>Local data management</h2>
+            <p>This page shows what is currently stored in the browser. Backend sync comes later.</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <article class="card">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow">Storage</span>
+                <h3>Browser database status</h3>
+              </div>
+              <span class="status-badge success">Local</span>
+            </div>
+            <div class="storage-metrics">
+              <div><span>Records stored</span><strong id="storageRecords">0</strong></div>
+              <div><span>Drafts</span><strong id="storageDrafts">0</strong></div>
+              <div><span>Pending sync</span><strong id="storagePending">0</strong></div>
+              <div><span>Estimated JSON size</span><strong id="storageSize">0 KB</strong></div>
+            </div>
+            <div class="form-actions">
+              <button class="secondary-btn" id="exportJsonBtn">Export JSON backup</button>
+              <button class="ghost-btn danger-text" id="clearLocalBtn">Clear all local records</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow">Future backend</span>
+                <h3>Synchronization design</h3>
+              </div>
+            </div>
+            <div class="sync-flow">
+              <span>LocalStorage</span><b>→</b><span>Sync queue</span><b>→</b><span>Node.js API</span><b>→</b><span>Supabase</span>
+            </div>
+            <p class="muted">
+              Later, a background sync process can upload only validated records when the device gets connectivity.
+              Conflicts, duplicate IDs and audit records should be resolved server-side.
+            </p>
+          </article>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==================== TOAST ==================== -->
+  <div id="toast" class="toast" role="status" aria-live="polite">
+    <strong id="toastTitle">Done</strong>
+    <span id="toastMessage"></span>
+  </div>
+
+  <!-- ==================== HELP MODAL ==================== -->
+  <div id="helpModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="helpModal"></div>
+    <div class="modal-dialog">
+      <button class="modal-close" data-close-modal="helpModal">×</button>
+      <span class="eyebrow">Enumerator help</span>
+      <h3>How this prototype works</h3>
+      <p>
+        Your assignment is stored locally. Each household gets a unique prototype code and inherits
+        the assigned Province → District → Sector → Cell → Village hierarchy.
+      </p>
+      <p>
+        GPS can be captured from the device. Green markers represent saved household locations.
+        The coverage circle is only a prototype visualization; a production version should use
+        official village boundary geometry from an authorized source.
+      </p>
+      <p>
+        <strong>Important:</strong> this prototype is not an official Rwanda government system.
+        Do not put real National IDs, phone numbers or other sensitive information into a public demo.
+      </p>
+      <button class="primary-btn" data-close-modal="helpModal">Understood</button>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="app.js"></script>
+</body>
+</html>
