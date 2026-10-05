@@ -93,4 +93,5 @@ For a real implementation:
 - Live enumerator GPS uses a blue marker and can be paused. Household coordinates are captured separately at the home, and the household is shown as a green marker after local submission.
 - One autosaved local draft can be resumed or deleted from the dashboard. Required fields, member ages (whole years, 0–120), coordinates and interview date are checked before submission.
 - These flows received basic server/API and JavaScript syntax checks. The interactive map and actual device GPS still need a browser check.
-- Next step: connect authenticated enumerator submissions to Supabase and build a Cell-scoped SEDO queue; this requires creating/configuring the Supabase project and its security policies. Keep using synthetic data in the prototype.
+- Supabase setup was paused because the dashboard Storage page stayed on “Taking longer than expected.” No Supabase schema or app connection was completed. Retry the dashboard tomorrow; do not put real household data or secret keys in the prototype.
+- Next step: once Supabase is available, define the database schema and Row Level Security policies, then connect authenticated enumerator submissions and build a Cell-scoped SEDO queue. Keep using synthetic data in the prototype.
