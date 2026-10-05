@@ -88,14 +88,17 @@
 
         <div class="prototype-warning">
           <strong>Frontend prototype:</strong>
-          submitted records and one saved draft stay in this browser's localStorage. Household GPS is captured at the home;
+            submitted records and one autosaved draft stay in this browser's localStorage. Household GPS is captured at the home;
           use “Start live GPS” to show the enumerator's changing position.
         </div>
 
         <article id="savedDraftCard" class="card hidden" style="margin-bottom:18px">
           <div class="card-header">
             <div><span class="eyebrow">Saved on this device</span><h3>Household draft</h3><p id="savedDraftDetail" class="muted"></p></div>
-            <button type="button" id="openSavedDraftBtn" class="primary-btn">Continue draft</button>
+            <div class="heading-actions">
+              <button type="button" id="deleteSavedDraftBtn" class="ghost-btn danger-text">Delete draft</button>
+              <button type="button" id="openSavedDraftBtn" class="primary-btn">Continue draft</button>
+            </div>
           </div>
         </article>
 
@@ -228,7 +231,7 @@
           <div>
             <span class="eyebrow">Household registration</span>
             <h2 id="formTitle">Register a new household</h2>
-            <p>Complete the interview carefully. The form is saved locally as a draft while you work.</p>
+            <p>Complete the interview carefully. Your changes are autosaved as one local draft until you submit.</p>
           </div>
           <div class="heading-actions">
             <button class="ghost-btn" id="saveDraftTopBtn">Save draft</button>
@@ -707,7 +710,7 @@
               <span class="section-number">9</span>
               <div>
                 <h3>Review & submit</h3>
-                <p>Review required fields before the record is marked ready for later backend synchronization.</p>
+                <p>Review required fields before placing this record in the local submission queue.</p>
               </div>
             </div>
 
@@ -724,8 +727,9 @@
             <div class="form-actions">
               <button type="button" class="ghost-btn" id="resetFormBtn">Reset form</button>
               <button type="button" class="secondary-btn" id="saveDraftBtn">Save draft</button>
-              <button type="submit" class="primary-btn">Save household locally</button>
+              <button type="submit" class="primary-btn">Save locally for submission</button>
             </div>
+            <p class="muted">This prototype does not send records to Supabase yet. Saved submissions remain on this device as pending sync.</p>
           </article>
         </form>
       </section>

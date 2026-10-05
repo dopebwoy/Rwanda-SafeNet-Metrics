@@ -187,6 +187,7 @@ let assignment = loadJson(CONFIG.assignmentKey, null);
 let households = loadJson(CONFIG.storageKey, []);
 let editingHouseholdId = null;
 let memberCounter = 0;
+let draftSaveTimer = null;
 
 let map;
 let villageBoundaryLayer = null;
@@ -912,6 +913,7 @@ function addMember(data = {}) {
     wrapper.remove();
     renumberMembers();
     updateFormProgress();
+    scheduleDraftAutoSave();
   });
 
   $$("input, select, textarea", wrapper).forEach(control => {
@@ -1100,9 +1102,30 @@ function updateFormProgress() {
    Draft storage
 ------------------------------ */
 
-function saveDraft() {
-  const data = formToObject();
+function hasDraftContent() {
+  const controls = $$("#householdForm input:not([type='checkbox']), #householdForm select, #householdForm textarea");
+  const hasScalarValue = controls.some(control => {
+    if (["householdCode", "interviewDate"].includes(control.name)) return false;
+    const value = String(control.value || "").trim();
+    if (!value) return false;
+    return !(control.type === "number" && Number(value) === 0);
+  });
+  const hasCheckedBox = $$("#householdForm input[type='checkbox']:checked").length > 0;
+  const hasMemberData = collectMembers().some(member =>
+    Object.values(member).some(value => value !== "" && value !== null)
+  );
+  return hasScalarValue || hasCheckedBox || hasMemberData;
+}
 
+function persistDraft({ notify = false } = {}) {
+  if (!hasDraftContent()) {
+    localStorage.removeItem(CONFIG.draftKey);
+    updateDraftView();
+    updateStorageView();
+    return;
+  }
+
+  const data = formToObject();
   const draft = {
     savedAt: new Date().toISOString(),
     editingHouseholdId,
@@ -1112,7 +1135,20 @@ function saveDraft() {
   saveJson(CONFIG.draftKey, draft);
   updateDraftView();
   updateStorageView();
-  showToast("Draft saved", "Your current form is stored in this browser.");
+  if (notify) showToast("Draft saved", "Your current form is stored in this browser.");
+}
+
+function saveDraft() {
+  if (!hasDraftContent()) {
+    showToast("Nothing to save", "Enter some household information first.", "error");
+    return;
+  }
+  persistDraft({ notify: true });
+}
+
+function scheduleDraftAutoSave() {
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(() => persistDraft(), 650);
 }
 
 function updateDraftView() {
@@ -1135,6 +1171,15 @@ function restoreSavedDraft() {
   fillHouseholdForm({ data: draft.data });
   navigate("newHousehold");
   showToast("Draft restored", "Your saved work is ready to continue.");
+}
+
+function deleteSavedDraft() {
+  if (!loadJson(CONFIG.draftKey, null)?.data) return;
+  if (!window.confirm("Delete the saved household draft from this browser?")) return;
+  localStorage.removeItem(CONFIG.draftKey);
+  updateDraftView();
+  updateStorageView();
+  showToast("Draft deleted", "The saved draft was removed from this browser.");
 }
 
 /* -----------------------------
@@ -1398,6 +1443,7 @@ function bindFormEvents() {
   $("#addMemberBtn").addEventListener("click", () => {
     addMember();
     updateFormProgress();
+    scheduleDraftAutoSave();
   });
 
   $("#captureGpsBtn").addEventListener("click", captureGpsIntoForm);
@@ -1416,8 +1462,14 @@ function bindFormEvents() {
     showToast("Form reset", "Unsaved form values were cleared.");
   });
 
-  $("#householdForm").addEventListener("input", updateFormProgress);
-  $("#householdForm").addEventListener("change", updateFormProgress);
+  $("#householdForm").addEventListener("input", () => {
+    updateFormProgress();
+    scheduleDraftAutoSave();
+  });
+  $("#householdForm").addEventListener("change", () => {
+    updateFormProgress();
+    scheduleDraftAutoSave();
+  });
 
   $("#householdForm").addEventListener("submit", event => {
     event.preventDefault();
@@ -1489,6 +1541,7 @@ function bindUtilityEvents() {
   });
 
   $("#exportJsonBtn").addEventListener("click", exportJsonBackup);
+  $("#deleteSavedDraftBtn")?.addEventListener("click", deleteSavedDraft);
 
   $("#clearLocalBtn").addEventListener("click", () => {
     const confirmed = window.confirm(
@@ -1553,6 +1606,11 @@ function enforceRecentLimit() {
 ------------------------------ */
 
 document.addEventListener("DOMContentLoaded", async () => {
+  window.addEventListener("pagehide", () => {
+    clearTimeout(draftSaveTimer);
+    persistDraft();
+  });
+
   loadProfile();
   enforceRecentLimit();
   initMap();
